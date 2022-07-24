@@ -1,4 +1,4 @@
-import hashlib, binascii
+import hashlib, hmac, binascii
 
 from enum import Enum, auto
 from Crypto.Hash import keccak
@@ -15,16 +15,27 @@ class Hash(Enum):
         keccak_hash.update(mb)
         return keccak_hash
 
-    def create(self, m):
-        mb = m.encode('utf-8')
+    def create(self, msg):
+        mb = msg.encode('utf-8')
         hash_fn = {
-            'SHA_224': lambda sb: hashlib.sha224(sb).digest(),
-            'SHA_256': lambda sb: hashlib.sha256(sb).digest(),
-            'SHA3_224': lambda sb: hashlib.sha3_224(sb).digest(),
-            'SHA3_384': lambda sb: hashlib.sha3_384(sb).digest(),
-            'KECCAK_384': lambda sb: self.keccak(sb, 384).digest()
+            'SHA_224': lambda mb: hashlib.sha224(mb).digest(),
+            'SHA_256': lambda mb: hashlib.sha256(mb).digest(),
+            'SHA3_224': lambda mb: hashlib.sha3_224(mb).digest(),
+            'SHA3_384': lambda mb: hashlib.sha3_384(mb).digest(),
+            'KECCAK_384': lambda mb: self.keccak(mb, 384).digest()
         }.get(self.name)
         return binascii.hexlify(hash_fn(mb))
+
+class HMAC(Enum):
+    SHA_256 = auto()
+
+    def create(self, key, msg):
+        mb = msg.encode('utf-8')
+        kb = key.encode('utf-8')
+        hmac_fn = {
+            'SHA_256': lambda kb, mb: hmac.new(kb, mb, hashlib.sha256).digest()
+        }.get(self.name)
+        return binascii.hexlify(hmac_fn(kb, mb))
 
 # Compute SHA-256
 def test_sha_256():
@@ -51,3 +62,9 @@ def test_keccak_384():
     hashed = b'dcef6fb7908fd52ba26aaba75121526abbf1217f1c0a31024652d134d3e32fb4cd8e9c703b8f43e7277b59a5cd402175'
     assert Hash.KECCAK_384.create("hello") == hashed
 
+# Hash-based Message Authentication Codes
+def test_hmac_sha_256():
+    hmac = b'0c51f516ace95c3910c3c8e6ac53a34bd3a519a356d2f1f45b0f04f96fc90de4'
+    msg = "This is a message"
+    key = "This is a key 12345 !@#$%"
+    assert HMAC.SHA_256.create(key, msg) == hmac
